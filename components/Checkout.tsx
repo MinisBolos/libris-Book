@@ -67,7 +67,7 @@ const generatePixPayload = (key: string, type: string, name: string, city: strin
     cleanKey = cleanKey.replace(/\s/g, '');
   }
   
-  const cleanName = normalizeStr(name || 'Libris Store').substring(0, 25); // Max 25 chars
+  const cleanName = normalizeStr(name || 'Libris Book').substring(0, 25); // Max 25 chars
   const cleanCity = normalizeStr(city || 'Sao Paulo').substring(0, 15); // Max 15 chars
   const amountStr = amount.toFixed(2);
 
@@ -96,6 +96,26 @@ const generatePixPayload = (key: string, type: string, name: string, city: strin
 export const Checkout: React.FC<CheckoutProps> = ({ cart, pixKey, pixKeyType, merchantName, merchantCity, total, onBack, onConfirm }) => {
   const [status, setStatus] = useState<'pending' | 'checking' | 'approved'>('pending');
   const [transactionId, setTransactionId] = useState('');
+  
+  // 23h 59m 59s in seconds (86399)
+  const [timeLeft, setTimeLeft] = useState(86399);
+
+  // Countdown timer logic
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Format seconds into HH:MM:SS
+  const formatTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
   
   // Gera ID de transação único
   useEffect(() => {
@@ -166,20 +186,20 @@ export const Checkout: React.FC<CheckoutProps> = ({ cart, pixKey, pixKeyType, me
 
   return (
     <div className="min-h-screen bg-slate-900/50 backdrop-blur-sm fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4 animate-in fade-in">
-      <div className="bg-white w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[650px]">
+      <div className="bg-white w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-auto md:min-h-[650px] my-auto">
         
         {/* Left: Enhanced Order Summary */}
-        <div className="bg-slate-50 p-8 md:w-[45%] border-r border-slate-100 flex flex-col">
-          <button onClick={onBack} disabled={status === 'checking'} className="flex items-center text-slate-500 hover:text-indigo-600 mb-6 transition-colors self-start disabled:opacity-50">
+        <div className="bg-slate-50 p-6 sm:p-8 md:w-[45%] border-b md:border-b-0 md:border-r border-slate-100 flex flex-col order-2 md:order-1">
+          <button onClick={onBack} disabled={status === 'checking'} className="hidden md:flex items-center text-slate-500 hover:text-indigo-600 mb-6 transition-colors self-start disabled:opacity-50">
             <ArrowLeft size={18} className="mr-2" /> Voltar
           </button>
           
-          <h2 className="text-2xl font-bold text-slate-800 mb-6">Resumo do Pedido</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-6">Resumo do Pedido</h2>
           
-          <div className="flex-1 space-y-4 overflow-y-auto max-h-[500px] pr-2 custom-scrollbar">
+          <div className="flex-1 space-y-4 overflow-y-auto max-h-[300px] md:max-h-[500px] pr-2 custom-scrollbar">
             {cart.map(item => (
               <div key={item.id} className="flex gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                <div className="w-20 h-28 shrink-0 bg-slate-200 rounded-md overflow-hidden shadow-sm">
+                <div className="w-16 h-24 sm:w-20 sm:h-28 shrink-0 bg-slate-200 rounded-md overflow-hidden shadow-sm">
                     <img src={item.coverUrl} alt={item.title} className="w-full h-full object-cover" />
                 </div>
                 <div className="flex flex-col flex-1 min-w-0">
@@ -211,15 +231,19 @@ export const Checkout: React.FC<CheckoutProps> = ({ cart, pixKey, pixKeyType, me
                     <span className="text-slate-500 text-sm block">Total do Pedido</span>
                     <span className="text-xs text-slate-400">ID: {transactionId}</span>
                 </div>
-                <span className="text-4xl font-bold text-slate-900">R$ {total.toFixed(2).replace('.', ',')}</span>
+                <span className="text-3xl sm:text-4xl font-bold text-slate-900">R$ {total.toFixed(2).replace('.', ',')}</span>
             </div>
           </div>
         </div>
 
         {/* Right: Payment */}
-        <div className="p-8 md:w-[55%] flex flex-col items-center justify-center bg-white text-center relative">
+        <div className="p-6 sm:p-8 md:w-[55%] flex flex-col items-center justify-center bg-white text-center relative order-1 md:order-2">
+             <button onClick={onBack} disabled={status === 'checking'} className="md:hidden flex items-center text-slate-500 hover:text-indigo-600 mb-6 transition-colors self-start disabled:opacity-50">
+                <ArrowLeft size={18} className="mr-2" /> Voltar
+             </button>
+
             {status === 'checking' && (
-              <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-8 animate-in fade-in">
+              <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-8 animate-in fade-in rounded-2xl">
                 <div className="relative mb-8">
                   <div className="absolute inset-0 bg-green-200 rounded-full animate-ping opacity-50 duration-1000"></div>
                   <div className="absolute inset-0 bg-green-200 rounded-full animate-ping opacity-50 delay-300 duration-1000"></div>
@@ -285,7 +309,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ cart, pixKey, pixKeyType, me
                     </div>
 
                     {/* QR Code Container */}
-                    <div className="bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-inner mb-6 relative group w-64 h-64 flex items-center justify-center">
+                    <div className="bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-inner mb-6 relative group w-64 h-64 flex items-center justify-center mx-auto">
                         {pixPayload ? (
                             <>
                             <img src={qrCodeUrl} alt="QR Code Pix" className={`w-full h-full object-contain mix-blend-multiply transition-opacity ${status === 'checking' ? 'opacity-20' : 'opacity-100'}`} />
@@ -298,16 +322,16 @@ export const Checkout: React.FC<CheckoutProps> = ({ cart, pixKey, pixKeyType, me
                             <div className="flex flex-col items-center justify-center text-slate-400 p-4 text-center">
                                 <AlertCircle size={32} className="mb-2 text-red-300" />
                                 <span className="text-sm font-bold text-red-500">Erro na Chave Pix</span>
-                                <span className="text-xs mt-1">Contate o administrador</span>
+                                <span className="text-xs mt-1">Verifique o Painel Admin</span>
                             </div>
                         )}
                     </div>
 
                     {/* Pix Key Display */}
-                    <div className="w-full max-w-md mb-8">
+                    <div className="w-full max-w-md mb-8 mx-auto">
                         <div className="flex justify-between items-center mb-2">
                             <label className="text-xs font-bold text-slate-400 uppercase">Copia e Cola</label>
-                            <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">Expira em 23:59</span>
+                            <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">Expira em {formatTime(timeLeft)}</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="flex-1 bg-slate-50 border border-slate-200 p-3 rounded-xl text-slate-600 text-xs font-mono truncate select-all shadow-sm">
@@ -337,7 +361,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ cart, pixKey, pixKeyType, me
                         {status === 'checking' ? 'Aguardando Banco...' : 'Confirmar Pagamento'}
                     </button>
                     
-                    <p className="text-xs text-slate-400 mt-6 max-w-xs leading-relaxed">
+                    <p className="text-xs text-slate-400 mt-6 max-w-xs leading-relaxed mx-auto">
                     <ShieldCheck size={12} className="inline mr-1 -mt-0.5" />
                     Ao clicar em confirmar, nosso sistema valida automaticamente o recebimento.
                     </p>

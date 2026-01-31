@@ -78,8 +78,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const detectKeyType = (value: string) => {
     const clean = value.trim();
+    
     // Auto-detect type based on pattern
-    if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(clean)) {
+    // EVP Regex: Relaxed to allow optional hyphens and case-insensitive matching
+    if (/^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i.test(clean)) {
       return 'EVP';
     }
     if (clean.includes('@')) {
@@ -196,33 +198,33 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 animate-in fade-in slide-in-from-bottom-4">
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-6 animate-in fade-in slide-in-from-bottom-4">
       <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
         {/* Header */}
-        <div className="bg-slate-900 text-white p-6 flex items-center justify-between">
+        <div className="bg-slate-900 text-white p-4 sm:p-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button onClick={onBack} className="p-2 hover:bg-white/10 rounded-full transition-colors">
               <ArrowLeft size={24} />
             </button>
-            <h1 className="text-2xl font-bold">Painel Administrativo</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">Painel Admin</h1>
           </div>
           <div className="flex bg-slate-800 rounded-lg p-1">
             <button 
               onClick={() => setActiveTab('books')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'books' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+              className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all ${activeTab === 'books' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
             >
               Livros
             </button>
             <button 
               onClick={() => setActiveTab('settings')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+              className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
             >
-              Configurações
+              Config
             </button>
           </div>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {notification && (
             <div className="mb-6 p-4 bg-green-50 text-green-700 border border-green-200 rounded-xl flex items-center gap-2 animate-in fade-in">
               <Save size={20} />
@@ -232,7 +234,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           {activeTab === 'settings' && (
             <div className="space-y-6">
-              <div className="bg-slate-50 p-6 rounded-xl border border-slate-100">
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-xl border border-slate-100">
                 <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                    <Wand2 size={20} className="text-indigo-600" />
                    Configuração de Pagamento Pix
@@ -284,7 +286,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           type="text" 
                           value={pixConfig.name}
                           onChange={(e) => setPixConfig({...pixConfig, name: e.target.value})}
-                          placeholder="Ex: Libris Store"
+                          placeholder="Ex: Libris Book"
                           maxLength={25}
                           className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                         />
@@ -440,85 +442,67 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   {/* PDF Upload */}
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Arquivo PDF</label>
-                    <div className="relative group cursor-pointer">
-                      <input 
-                        type="file" 
-                        accept="application/pdf"
-                        onChange={(e) => handleFileUpload(e, 'pdf')}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                      />
-                      <div className={`w-full p-3 border-2 border-dashed rounded-lg flex items-center justify-center gap-2 transition-colors ${formData.pdfUrl ? 'border-green-300 bg-green-50 text-green-700' : 'border-slate-300 bg-slate-50 text-slate-500 group-hover:border-indigo-400'}`}>
-                        {formData.pdfUrl ? (
-                          <>
-                            <FileText size={20} />
-                            <span className="font-medium text-sm">PDF Carregado</span>
-                          </>
-                        ) : (
-                          <>
-                            <Upload size={20} />
-                            <span className="font-medium text-sm">Clique para enviar PDF</span>
-                          </>
+                    <div className="grid grid-cols-[1fr,auto] gap-2 items-center">
+                        <div className="relative group cursor-pointer h-[50px]">
+                            <input 
+                                type="file" 
+                                accept="application/pdf"
+                                onChange={(e) => handleFileUpload(e, 'pdf')}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                            />
+                            <div className={`w-full h-full border-2 border-dashed rounded-lg flex items-center justify-center gap-2 transition-colors ${formData.pdfUrl ? 'border-red-300 bg-red-50 text-red-700' : 'border-slate-300 bg-slate-50 text-slate-500 group-hover:border-indigo-400'}`}>
+                                <FileText size={20} />
+                                <span className="font-medium text-sm">{formData.pdfUrl ? 'PDF Carregado' : 'Carregar PDF'}</span>
+                            </div>
+                        </div>
+                        {formData.pdfUrl && (
+                           <div className="w-[40px] h-[50px] bg-red-100 border border-red-200 rounded flex items-center justify-center text-red-500" title="PDF pronto">
+                              <FileText size={24} />
+                           </div>
                         )}
-                      </div>
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Descrição</label>
-                    <textarea 
-                      rows={3}
-                      className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
-                      value={formData.description}
-                      onChange={e => setFormData({...formData, description: e.target.value})}
-                    />
-                  </div>
                   <button 
                     type="submit"
-                    className={`w-full py-3 rounded-xl font-bold transition-all shadow-lg flex items-center justify-center gap-2 ${
-                      isEditing 
-                      ? 'bg-amber-500 hover:bg-amber-600 text-white' 
-                      : 'bg-slate-900 hover:bg-slate-800 text-white'
-                    }`}
+                    className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold shadow-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 mt-2"
                   >
-                    {isEditing ? (
-                      <><Check size={20} /> Atualizar Livro</>
-                    ) : (
-                      <><Plus size={20} /> Cadastrar Livro</>
-                    )}
+                    <Save size={18} />
+                    {isEditing ? 'Salvar Alterações' : 'Cadastrar Livro'}
                   </button>
                 </form>
               </div>
 
               {/* List */}
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 max-h-[600px] overflow-y-auto">
-                <h3 className="text-sm font-bold text-slate-500 uppercase mb-4">Gerenciar Inventário ({books.length})</h3>
-                <div className="space-y-3">
-                  {[...books].reverse().map(book => (
-                    <div key={book.id} className={`bg-white p-3 rounded-lg border flex gap-3 shadow-sm transition-all ${editingId === book.id ? 'border-amber-500 ring-2 ring-amber-100' : 'border-slate-200'}`}>
-                      <img src={book.coverUrl} alt="" className="w-10 h-14 object-cover rounded bg-slate-100" />
+              <div className="mt-8 lg:mt-0 border-t lg:border-t-0 lg:border-l border-slate-200 lg:pl-8">
+                <h2 className="text-lg font-bold text-slate-800 mb-4">Catálogo ({books.length})</h2>
+                <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                  {books.map(book => (
+                    <div key={book.id} className="flex gap-3 p-3 bg-white border border-slate-100 rounded-xl hover:shadow-md transition-shadow group">
+                      <img src={book.coverUrl} alt={book.title} className="w-12 h-16 object-cover rounded-md bg-slate-200" />
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-slate-800 text-sm truncate">{book.title}</h4>
+                        <h3 className="font-bold text-slate-800 text-sm truncate">{book.title}</h3>
+                        <p className="text-xs text-slate-500 truncate">{book.author}</p>
                         <div className="flex items-center gap-2 mt-1">
-                           <span className="text-xs text-slate-500 truncate">{book.author}</span>
-                           {book.pdfUrl && <span className="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded font-bold">PDF OK</span>}
+                          <span className="text-xs font-bold text-indigo-600">R$ {book.price.toFixed(2)}</span>
+                          <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">{book.category}</span>
                         </div>
-                        <p className="text-xs font-medium text-indigo-600 mt-1">R$ {book.price.toFixed(2)}</p>
                       </div>
-                      <div className="flex flex-col gap-2 justify-center">
-                        <button 
-                          onClick={() => startEditing(book)}
-                          className="text-slate-300 hover:text-amber-500 transition-colors p-1"
-                          title="Editar"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button 
-                          onClick={() => onRemoveBook(book.id)}
-                          className="text-slate-300 hover:text-red-500 transition-colors p-1"
-                          title="Remover"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                      <div className="flex flex-col gap-2 justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                         <button 
+                            onClick={() => startEditing(book)}
+                            className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded transition-colors"
+                            title="Editar"
+                         >
+                            <Pencil size={16} />
+                         </button>
+                         <button 
+                            onClick={() => onRemoveBook(book.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                            title="Remover"
+                         >
+                            <Trash2 size={16} />
+                         </button>
                       </div>
                     </div>
                   ))}

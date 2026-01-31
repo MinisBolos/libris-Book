@@ -27,7 +27,7 @@ export const getBookRecommendations = async (
   }));
 
   const systemInstruction = `
-    Você é a "Libris", uma assistente virtual especializada e amigável da livraria "Libris AI Store".
+    Você é a "Libris", uma assistente virtual especializada e amigável da livraria "Libris Book".
     
     Seu objetivo é ajudar clientes a encontrar livros no nosso inventário.
     Use o inventário fornecido abaixo para basear suas recomendações.
