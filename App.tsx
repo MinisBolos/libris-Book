@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ShoppingCart, Search, BookOpen, X, Trash2, Filter, Menu, Settings, Eye, Book as BookIcon } from 'lucide-react';
+import { ShoppingCart, Search, BookOpen, X, Trash2, Filter, Menu, Settings, Eye, Book as BookIcon, Loader2 } from 'lucide-react';
 import { Book, CartItem, ViewState } from './types';
 import { BOOKS } from './constants';
 import { BookCard } from './components/BookCard';
@@ -7,35 +7,55 @@ import { Librarian } from './components/Librarian';
 import { AdminPanel } from './components/AdminPanel';
 import { AdminLogin } from './components/AdminLogin';
 import { Checkout } from './components/Checkout';
+import { storageService } from './services/storage';
 
 const App: React.FC = () => {
   // Application State
   const [currentView, setCurrentView] = useState<ViewState>('store');
+  const [isLoading, setIsLoading] = useState(true);
   
-  // Initialize books from Local Storage or fallback to default constants
-  const [books, setBooks] = useState<Book[]>(() => {
-    try {
-      const savedBooks = localStorage.getItem('libris_inventory');
-      if (savedBooks) {
-        return JSON.parse(savedBooks);
-      }
-    } catch (error) {
-      console.error("Erro ao carregar livros do armazenamento:", error);
-    }
-    return BOOKS;
-  });
+  // Initialize books state
+  const [books, setBooks] = useState<Book[]>([]);
   
-  // Save books to Local Storage whenever they change
+  // Load Books from IndexedDB on Mount
   useEffect(() => {
-    localStorage.setItem('libris_inventory', JSON.stringify(books));
-  }, [books]);
+    const initData = async () => {
+      try {
+        const storedBooks = await storageService.getAllBooks();
+        
+        if (storedBooks && storedBooks.length > 0) {
+          setBooks(storedBooks);
+        } else {
+          // First time load: Seed DB with constant data
+          console.log("Inicializando banco de dados com catálogo padrão...");
+          await storageService.seedBooks(BOOKS);
+          setBooks(BOOKS);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar banco de dados:", error);
+        // Fallback in case of critical DB error
+        setBooks(BOOKS);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initData();
+  }, []);
   
   // Pix Configuration State
-  const [pixKey, setPixKey] = useState<string>('livraria@libris.com.br'); 
-  const [pixKeyType, setPixKeyType] = useState<string>('EMAIL'); // EMAIL, CPF, CNPJ, PHONE, EVP (Aleatoria)
-  const [merchantName, setMerchantName] = useState<string>('Libris Book');
-  const [merchantCity, setMerchantCity] = useState<string>('Sao Paulo');
+  const [pixKey, setPixKey] = useState<string>(() => localStorage.getItem('libris_pix_key') || 'livraria@libris.com.br');
+  const [pixKeyType, setPixKeyType] = useState<string>(() => localStorage.getItem('libris_pix_type') || 'EMAIL');
+  const [merchantName, setMerchantName] = useState<string>(() => localStorage.getItem('libris_merchant_name') || 'Libris Book');
+  const [merchantCity, setMerchantCity] = useState<string>(() => localStorage.getItem('libris_merchant_city') || 'Sao Paulo');
   
+  useEffect(() => {
+    localStorage.setItem('libris_pix_key', pixKey);
+    localStorage.setItem('libris_pix_type', pixKeyType);
+    localStorage.setItem('libris_merchant_name', merchantName);
+    localStorage.setItem('libris_merchant_city', merchantCity);
+  }, [pixKey, pixKeyType, merchantName, merchantCity]);
+
   // Auth State
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
 
@@ -104,8 +124,39 @@ const App: React.FC = () => {
     setCurrentView('store');
   };
   
-  const handleUpdateBook = (updatedBook: Book) => {
+  // Enhanced Handlers with Persistence
+  const handleAddBook = async (newBook: Book) => {
+    setBooks(prev => [...prev, newBook]);
+    await storageService.saveBook(newBook);
+  };
+
+  const handleUpdateBook = async (updatedBook: Book) => {
     setBooks(prev => prev.map(book => book.id === updatedBook.id ? updatedBook : book));
+    await storageService.saveBook(updatedBook);
+  };
+
+  const handleRemoveBook = async (id: string) => {
+    setBooks(prev => prev.filter(b => b.id !== id));
+    await storageService.deleteBook(id);
+  };
+
+  // Função para "Apagar Categoria"
+  // Na verdade, move todos os livros da categoria X para "Geral", eliminando a categoria da lista
+  const handleDeleteCategory = async (categoryToDelete: string) => {
+    const updatedBooks = books.map(book => {
+      if (book.category === categoryToDelete) {
+        return { ...book, category: 'Geral' };
+      }
+      return book;
+    });
+
+    setBooks(updatedBooks);
+    
+    // Atualiza no banco de dados apenas os livros modificados
+    const booksToUpdate = updatedBooks.filter(b => b.category === 'Geral' && books.find(old => old.id === b.id)?.category === categoryToDelete);
+    for (const book of booksToUpdate) {
+        await storageService.saveBook(book);
+    }
   };
 
   const handleUpdatePixConfig = (key: string, type: string, name: string, city: string) => {
@@ -115,20 +166,29 @@ const App: React.FC = () => {
     setMerchantCity(city);
   };
 
-  // Generate fake content for preview
+  // Fallback fake content generator (Only used if PDF is missing)
   const getPreviewContent = (book: Book) => {
     const paragraphs = [];
-    paragraphs.push(`Bem-vindo à prévia de "${book.title}".`);
+    paragraphs.push(`Introdução à obra "${book.title}"`);
     paragraphs.push(book.description);
+    paragraphs.push("--- PDF NÃO ENCONTRADO - TEXTO SIMULADO ---");
+    paragraphs.push("Este livro não possui um arquivo PDF real carregado para prévia. Abaixo segue um texto de exemplo.");
     
-    const lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
-    
-    for(let i=0; i<5; i++) {
-        paragraphs.push(lorem);
-    }
+    const textBlock1 = "A luz da manhã incidia suavemente sobre a mesa de trabalho, iluminando os papéis espalhados...";
+    paragraphs.push(textBlock1);
     
     return paragraphs;
   };
+
+  // Loading Screen
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+        <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
+        <h2 className="text-xl font-bold text-slate-800">Carregando Biblioteca...</h2>
+      </div>
+    );
+  }
 
   // Render Logic
   if (currentView === 'admin') {
@@ -144,9 +204,9 @@ const App: React.FC = () => {
     return (
       <AdminPanel 
         onBack={() => setCurrentView('store')}
-        onAddBook={(newBook) => setBooks(prev => [...prev, newBook])}
+        onAddBook={handleAddBook}
         onEditBook={handleUpdateBook}
-        onRemoveBook={(id) => setBooks(prev => prev.filter(b => b.id !== id))}
+        onRemoveBook={handleRemoveBook}
         pixKey={pixKey}
         pixKeyType={pixKeyType}
         merchantName={merchantName}
@@ -154,6 +214,7 @@ const App: React.FC = () => {
         onUpdatePixConfig={handleUpdatePixConfig}
         books={books}
         existingCategories={categories.filter(c => c !== 'Todos')}
+        onDeleteCategory={handleDeleteCategory}
       />
     );
   }
@@ -169,6 +230,7 @@ const App: React.FC = () => {
         merchantCity={merchantCity}
         onBack={() => setCurrentView('store')}
         onConfirm={handleFinishPayment}
+        isAdminLoggedIn={isAdminLoggedIn}
       />
     );
   }
@@ -485,9 +547,9 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* PREVIEW MODE (Watermarked Reader) */}
+      {/* PREVIEW MODE (REAL CONTENT PDF OR FALLBACK) */}
       {readingBook && (
-        <div className="fixed inset-0 z-[60] bg-slate-900 flex flex-col animate-in fade-in" onContextMenu={(e) => e.preventDefault()}>
+        <div className="fixed inset-0 z-[60] bg-slate-900 flex flex-col animate-in fade-in">
             {/* Header */}
             <div className="bg-slate-900 text-white p-4 flex items-center justify-between border-b border-slate-800 z-50 relative">
                 <div className="flex items-center gap-3">
@@ -500,43 +562,55 @@ const App: React.FC = () => {
                     </div>
                 </div>
                 <div className="text-xs font-mono text-amber-500 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
-                    MODO DE PRÉVIA • APENAS LEITURA
+                    MODO DE PRÉVIA
                 </div>
             </div>
 
-            {/* Reader Content */}
-            <div className="flex-1 overflow-y-auto bg-[#f8f5f2] relative flex justify-center py-8 px-4 select-none">
+            {/* Content Area */}
+            <div className="flex-1 overflow-hidden bg-[#f8f5f2] relative flex justify-center">
                 
-                {/* WATERMARK LAYER - Covers everything */}
-                <div className="absolute inset-0 z-40 pointer-events-none overflow-hidden flex flex-wrap gap-x-24 gap-y-32 p-10 justify-center content-start opacity-[0.15]">
-                    {Array.from({ length: 40 }).map((_, i) => (
-                        <div key={i} className="transform -rotate-45 text-slate-900 font-black text-2xl sm:text-4xl whitespace-nowrap">
-                            PRÉVIA LIBRIS • NÃO COPIAR
+                {/* Check if we have a PDF URL (real content) */}
+                {readingBook.pdfUrl ? (
+                    <div className="w-full h-full flex flex-col">
+                        <iframe 
+                            src={readingBook.pdfUrl} 
+                            className="w-full h-full border-none" 
+                            title="Visualizador de PDF"
+                        />
+                    </div>
+                ) : (
+                    /* Fallback to Simulated Text if no PDF is uploaded */
+                    <div className="overflow-y-auto w-full flex justify-center py-8 px-4 select-none relative">
+                        {/* WATERMARK LAYER */}
+                        <div className="absolute inset-0 z-40 pointer-events-none overflow-hidden flex flex-wrap gap-x-24 gap-y-32 p-10 justify-center content-start opacity-[0.15]">
+                            {Array.from({ length: 40 }).map((_, i) => (
+                                <div key={i} className="transform -rotate-45 text-slate-900 font-black text-2xl sm:text-4xl whitespace-nowrap">
+                                    PRÉVIA LIBRIS • NÃO COPIAR
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
 
-                {/* Page Container */}
-                <div className="w-full max-w-3xl bg-white shadow-2xl min-h-[1000px] p-8 sm:p-16 relative z-10 text-slate-800 leading-relaxed">
-                    {/* Fake Header inside Page */}
-                    <div className="border-b-2 border-slate-100 pb-8 mb-8 text-center">
-                        <h1 className="text-3xl sm:text-4xl font-serif font-bold text-slate-900 mb-2">{readingBook.title}</h1>
-                        <p className="text-lg text-slate-500 italic">por {readingBook.author}</p>
-                    </div>
-                    
-                    {/* Generated Content */}
-                    <div className="font-serif text-lg space-y-6 text-justify">
-                        {getPreviewContent(readingBook).map((paragraph, idx) => (
-                            <p key={idx}>{paragraph}</p>
-                        ))}
-                        
-                        <div className="py-12 flex flex-col items-center justify-center text-center space-y-4 border-t border-slate-100 mt-12">
-                            <BookIcon size={48} className="text-slate-300" />
-                            <h3 className="text-xl font-bold text-slate-900">Gostou do que leu?</h3>
-                            <p className="text-slate-500 max-w-md">Adquira a versão completa para continuar lendo e ter acesso ao conteúdo exclusivo.</p>
+                        {/* Simulated Content Container */}
+                        <div className="w-full max-w-3xl bg-white shadow-2xl min-h-[1000px] p-8 sm:p-16 relative z-10 text-slate-800 leading-relaxed">
+                            <div className="border-b-2 border-slate-100 pb-8 mb-8 text-center">
+                                <h1 className="text-3xl sm:text-4xl font-serif font-bold text-slate-900 mb-2">{readingBook.title}</h1>
+                                <p className="text-lg text-slate-500 italic">por {readingBook.author}</p>
+                            </div>
+                            
+                            <div className="font-serif text-lg space-y-6 text-justify">
+                                {getPreviewContent(readingBook).map((paragraph, idx) => (
+                                    <p key={idx}>{paragraph}</p>
+                                ))}
+                                
+                                <div className="py-12 flex flex-col items-center justify-center text-center space-y-4 border-t border-slate-100 mt-12">
+                                    <BookIcon size={48} className="text-slate-300" />
+                                    <h3 className="text-xl font-bold text-slate-900">Gostou do que leu?</h3>
+                                    <p className="text-slate-500 max-w-md">Adquira a versão completa para continuar lendo e ter acesso ao conteúdo exclusivo.</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
             </div>
         </div>
       )}

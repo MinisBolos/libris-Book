@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Book, FilterCategory } from '../types';
-import { Plus, Save, ArrowLeft, Trash2, Pencil, RotateCcw, Check, Upload, FileText, Image as ImageIcon, Wand2 } from 'lucide-react';
+import { Plus, Save, ArrowLeft, Trash2, Pencil, RotateCcw, Check, Upload, FileText, Image as ImageIcon, Wand2, Tag } from 'lucide-react';
 
 interface AdminPanelProps {
   onBack: () => void;
@@ -14,6 +14,7 @@ interface AdminPanelProps {
   books: Book[];
   onRemoveBook: (id: string) => void;
   existingCategories: string[];
+  onDeleteCategory: (category: string) => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ 
@@ -27,7 +28,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onUpdatePixConfig,
   books,
   onRemoveBook,
-  existingCategories
+  existingCategories,
+  onDeleteCategory
 }) => {
   const [activeTab, setActiveTab] = useState<'books' | 'settings'>('books');
   
@@ -74,6 +76,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const handleSavePix = () => {
     onUpdatePixConfig(pixConfig.key, pixConfig.type, pixConfig.name, pixConfig.city);
     showNotification('Configurações Pix atualizadas com sucesso!');
+  };
+
+  const handleDeleteCategoryConfirm = (category: string) => {
+    if (confirm(`Tem certeza que deseja apagar a categoria "${category}"? Os livros dessa categoria serão movidos para "Geral".`)) {
+        onDeleteCategory(category);
+        showNotification(`Categoria "${category}" removida.`);
+    }
   };
 
   const detectKeyType = (value: string) => {
@@ -234,6 +243,35 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           {activeTab === 'settings' && (
             <div className="space-y-6">
+              
+              {/* Category Management Section */}
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-xl border border-slate-100">
+                <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                   <Tag size={20} className="text-indigo-600" />
+                   Gerenciar Categorias
+                </h2>
+                <div className="space-y-2">
+                    <p className="text-xs text-slate-500 mb-3">Ao apagar uma categoria, todos os livros pertencentes a ela serão movidos para "Geral".</p>
+                    <div className="flex flex-wrap gap-2">
+                        {existingCategories.length > 0 ? existingCategories.map(cat => (
+                            <div key={cat} className="flex items-center gap-2 bg-white border border-slate-200 rounded-full px-3 py-1.5 shadow-sm">
+                                <span className="text-sm font-medium text-slate-700">{cat}</span>
+                                <button 
+                                    onClick={() => handleDeleteCategoryConfirm(cat)}
+                                    className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                                    title="Apagar Categoria"
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
+                        )) : (
+                            <p className="text-sm text-slate-400 italic">Nenhuma categoria personalizada encontrada.</p>
+                        )}
+                    </div>
+                </div>
+              </div>
+
+              {/* Pix Configuration Section */}
               <div className="bg-slate-50 p-4 sm:p-6 rounded-xl border border-slate-100">
                 <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                    <Wand2 size={20} className="text-indigo-600" />

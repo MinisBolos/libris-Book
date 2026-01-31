@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CartItem } from '../types';
-import { CheckCircle, Copy, ArrowLeft, AlertCircle, Loader2, Download, CloudLightning, FileText, Building2, ShieldCheck, Lock } from 'lucide-react';
+import { CheckCircle, Copy, ArrowLeft, AlertCircle, Loader2, Download, CloudLightning, FileText, Building2, ShieldCheck, Lock, Send, Smartphone } from 'lucide-react';
 
 interface CheckoutProps {
   cart: CartItem[];
@@ -11,6 +11,7 @@ interface CheckoutProps {
   total: number;
   onBack: () => void;
   onConfirm: () => void;
+  isAdminLoggedIn?: boolean;
 }
 
 // --- Funções Auxiliares para Gerar Payload Pix (Padrão EMV) ---
@@ -93,8 +94,8 @@ const generatePixPayload = (key: string, type: string, name: string, city: strin
   return payload;
 };
 
-export const Checkout: React.FC<CheckoutProps> = ({ cart, pixKey, pixKeyType, merchantName, merchantCity, total, onBack, onConfirm }) => {
-  const [status, setStatus] = useState<'pending' | 'checking' | 'approved'>('pending');
+export const Checkout: React.FC<CheckoutProps> = ({ cart, pixKey, pixKeyType, merchantName, merchantCity, total, onBack, onConfirm, isAdminLoggedIn }) => {
+  const [status, setStatus] = useState<'pending' | 'checking' | 'failed' | 'approved'>('pending');
   const [transactionId, setTransactionId] = useState('');
   
   // 23h 59m 59s in seconds (86399)
@@ -158,16 +159,30 @@ export const Checkout: React.FC<CheckoutProps> = ({ cart, pixKey, pixKeyType, me
     }
   };
 
-  // Simulates realistic bank connection verification
-  useEffect(() => {
-    let timeout: ReturnType<typeof setTimeout>;
-    if (status === 'checking') {
-      timeout = setTimeout(() => {
+  // Funcao para SIMULAR verificação com API Real
+  // Em produção, isso faria um fetch para seu backend
+  const verifyPayment = async () => {
+    setStatus('checking');
+    
+    // Simula delay de rede
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    // Como não há backend real conectado ao banco, falha por padrão para segurança.
+    // O conteúdo só é liberado se a API do banco retornar "approved".
+    setStatus('failed');
+  };
+
+  const handleAdminForceApprove = () => {
+    if (confirm("Confirmar que o pagamento foi recebido na conta bancária?")) {
         setStatus('approved');
-      }, 6000); // 6 seconds simulation to feel "real"
     }
-    return () => clearTimeout(timeout);
-  }, [status]);
+  };
+
+  const handleSendWhatsApp = () => {
+    const text = `Olá! Realizei o pagamento do pedido #${transactionId} no valor de R$ ${total.toFixed(2)}. Segue o comprovante.`;
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
 
   if (cart.length === 0) {
     return (
@@ -244,24 +259,11 @@ export const Checkout: React.FC<CheckoutProps> = ({ cart, pixKey, pixKeyType, me
 
             {status === 'checking' && (
               <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-8 animate-in fade-in rounded-2xl">
-                <div className="relative mb-8">
-                  <div className="absolute inset-0 bg-green-200 rounded-full animate-ping opacity-50 duration-1000"></div>
-                  <div className="absolute inset-0 bg-green-200 rounded-full animate-ping opacity-50 delay-300 duration-1000"></div>
-                  <div className="w-24 h-24 bg-white text-green-600 rounded-full flex items-center justify-center relative shadow-lg border-4 border-green-50 z-10">
-                     <ShieldCheck size={48} className="animate-pulse" />
-                  </div>
-                </div>
-                <h3 className="text-2xl font-bold text-slate-800 mb-3">Conectando ao Banco...</h3>
+                <Loader2 className="w-16 h-16 text-indigo-600 animate-spin mb-4" />
+                <h3 className="text-2xl font-bold text-slate-800 mb-3">Verificando Pagamento...</h3>
                 <p className="text-slate-500 text-sm max-w-sm leading-relaxed mb-8">
-                  Estamos validando a transação ID <span className="font-mono font-bold text-slate-700">#{transactionId}</span> nos sistemas do Banco Central. Por favor, não feche esta janela.
+                  Consultando o sistema bancário para o pedido <span className="font-mono font-bold text-slate-700">#{transactionId}</span>.
                 </p>
-                <div className="w-64 h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-green-500 animate-[progress_6s_ease-in-out_infinite] w-full origin-left"></div>
-                </div>
-                <div className="flex items-center gap-2 mt-6 text-xs text-slate-400">
-                    <Lock size={12} />
-                    Conexão Segura e Criptografada
-                </div>
               </div>
             )}
             
@@ -271,7 +273,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ cart, pixKey, pixKeyType, me
                         <CheckCircle size={32} />
                     </div>
                     <h2 className="text-2xl font-bold text-slate-900 mb-2">Sucesso!</h2>
-                    <p className="text-slate-500 mb-6">Pagamento confirmado.</p>
+                    <p className="text-slate-500 mb-6">Pagamento confirmado e processado.</p>
                     
                     <div className="bg-indigo-50 rounded-xl p-4 w-full mb-6 border border-indigo-100 text-left">
                         <h3 className="font-bold text-indigo-900 text-sm mb-3">Downloads Liberados:</h3>
@@ -303,9 +305,9 @@ export const Checkout: React.FC<CheckoutProps> = ({ cart, pixKey, pixKeyType, me
                             <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-700">
                                 <span className="font-bold font-mono">1</span>
                             </div>
-                            <h2 className="text-xl font-bold text-slate-900">Pagamento Instantâneo</h2>
+                            <h2 className="text-xl font-bold text-slate-900">Pagamento via Pix</h2>
                         </div>
-                        <p className="text-slate-500 text-sm">Escaneie o QR Code abaixo com o aplicativo do seu banco para liberar o download imediato.</p>
+                        <p className="text-slate-500 text-sm">O conteúdo será liberado após a confirmação do pagamento.</p>
                     </div>
 
                     {/* QR Code Container */}
@@ -348,23 +350,47 @@ export const Checkout: React.FC<CheckoutProps> = ({ cart, pixKey, pixKeyType, me
                         </div>
                     </div>
 
-                    <button 
-                        onClick={() => setStatus('checking')}
-                        disabled={!pixKey || status === 'checking'}
-                        className="w-full max-w-md bg-slate-900 text-white py-4 rounded-xl font-bold text-lg hover:bg-slate-800 shadow-xl hover:shadow-2xl shadow-slate-200 hover:-translate-y-1 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
-                    >
-                        {status === 'checking' ? (
-                        <Loader2 className="animate-spin" />
-                        ) : (
-                        <CheckCircle size={24} className="text-green-400" />
+                    {status === 'failed' && (
+                        <div className="w-full max-w-md bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-amber-800 text-sm flex items-start gap-2">
+                             <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+                             <div className="text-left">
+                                <p className="font-bold">Pagamento ainda não identificado</p>
+                                <p className="text-xs mt-1">O sistema bancário pode levar alguns segundos. Se você já pagou, envie o comprovante.</p>
+                             </div>
+                        </div>
+                    )}
+
+                    <div className="w-full max-w-md space-y-3">
+                         <button 
+                            onClick={verifyPayment}
+                            disabled={!pixKey}
+                            className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg hover:bg-slate-800 shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                            <ShieldCheck size={20} />
+                            Verificar Pagamento
+                        </button>
+                        
+                        <button 
+                             onClick={handleSendWhatsApp}
+                             className="w-full bg-white border border-slate-200 text-slate-700 py-3 rounded-xl font-bold hover:bg-green-50 hover:text-green-700 hover:border-green-200 transition-colors flex items-center justify-center gap-2"
+                        >
+                             <Send size={18} />
+                             Enviar Comprovante (WhatsApp)
+                        </button>
+
+                        {isAdminLoggedIn && (
+                            <div className="pt-4 border-t border-slate-100 mt-4">
+                                <p className="text-xs text-slate-400 mb-2 uppercase font-bold">Área do Administrador</p>
+                                <button 
+                                    onClick={handleAdminForceApprove}
+                                    className="w-full bg-indigo-50 border border-indigo-200 text-indigo-700 py-2 rounded-lg font-bold hover:bg-indigo-100 transition-colors flex items-center justify-center gap-2 text-sm"
+                                >
+                                    <Lock size={14} />
+                                    Aprovar Pedido Manualmente
+                                </button>
+                            </div>
                         )}
-                        {status === 'checking' ? 'Aguardando Banco...' : 'Confirmar Pagamento'}
-                    </button>
-                    
-                    <p className="text-xs text-slate-400 mt-6 max-w-xs leading-relaxed mx-auto">
-                    <ShieldCheck size={12} className="inline mr-1 -mt-0.5" />
-                    Ao clicar em confirmar, nosso sistema valida automaticamente o recebimento.
-                    </p>
+                    </div>
                 </>
             )}
 
