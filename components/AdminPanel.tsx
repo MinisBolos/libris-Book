@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Book, FilterCategory } from '../types';
-import { Plus, Save, ArrowLeft, Trash2, Pencil, RotateCcw, Check, Upload, FileText, Image as ImageIcon } from 'lucide-react';
+import { Plus, Save, ArrowLeft, Trash2, Pencil, RotateCcw, Check, Upload, FileText, Image as ImageIcon, Wand2 } from 'lucide-react';
 
 interface AdminPanelProps {
   onBack: () => void;
@@ -74,6 +74,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const handleSavePix = () => {
     onUpdatePixConfig(pixConfig.key, pixConfig.type, pixConfig.name, pixConfig.city);
     showNotification('Configurações Pix atualizadas com sucesso!');
+  };
+
+  const detectKeyType = (value: string) => {
+    const clean = value.trim();
+    // Auto-detect type based on pattern
+    if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(clean)) {
+      return 'EVP';
+    }
+    if (clean.includes('@')) {
+      return 'EMAIL';
+    }
+    if (/^\d{2,3}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}$/.test(clean)) {
+      return 'CNPJ';
+    }
+    if (/^\+55/.test(clean)) {
+      return 'PHONE';
+    }
+    if (/^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$/.test(clean)) {
+      return 'CPF';
+    }
+    return null;
+  };
+
+  const handleKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    const detected = detectKeyType(val);
+    setPixConfig(prev => ({
+      ...prev,
+      key: val,
+      type: detected || prev.type // Only update type if detected, otherwise keep current
+    }));
   };
 
   const showNotification = (msg: string) => {
@@ -202,7 +233,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           {activeTab === 'settings' && (
             <div className="space-y-6">
               <div className="bg-slate-50 p-6 rounded-xl border border-slate-100">
-                <h2 className="text-lg font-bold text-slate-800 mb-4">Configuração de Pagamento Pix</h2>
+                <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                   <Wand2 size={20} className="text-indigo-600" />
+                   Configuração de Pagamento Pix
+                </h2>
                 <div className="space-y-4">
                   <div className="grid md:grid-cols-3 gap-4">
                     <div>
@@ -210,7 +244,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       <select
                         value={pixConfig.type}
                         onChange={(e) => setPixConfig({...pixConfig, type: e.target.value})}
-                        className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                        className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white font-medium"
                       >
                         <option value="CNPJ">CNPJ</option>
                         <option value="EVP">Chave Aleatória (EVP)</option>
@@ -224,33 +258,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       <input 
                         type="text" 
                         value={pixConfig.key}
-                        onChange={(e) => setPixConfig({...pixConfig, key: e.target.value})}
+                        onChange={handleKeyChange}
                         placeholder={
-                            pixConfig.type === 'CNPJ' ? '12.345.678/0001-90' :
-                            pixConfig.type === 'EVP' ? '82b9a...' :
+                            pixConfig.type === 'CNPJ' ? '00.000.000/0001-00' :
+                            pixConfig.type === 'EVP' ? 'Ex: 123e4567-e89b-12d3-a456-426614174000' :
                             pixConfig.type === 'PHONE' ? '+5511999999999' : 'Chave...'
                         }
-                        className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                        className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm"
                       />
                     </div>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0">
-                    {pixConfig.type === 'CNPJ' && 'Digite apenas os números ou com pontuação (será formatado automaticamente).'}
-                    {pixConfig.type === 'PHONE' && 'Use o formato internacional: +55...'}
-                  </p>
+                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-xs text-slate-500">
+                    <p className="font-bold mb-1 text-slate-700">Dica:</p>
+                    <ul className="list-disc pl-4 space-y-1">
+                        <li><strong>CNPJ:</strong> Digite apenas números ou com pontuação.</li>
+                        <li><strong>Chave Aleatória (EVP):</strong> Copie exatamente como no app do banco (geralmente 32 caracteres ou formato UUID).</li>
+                        <li><strong>Telefone:</strong> Use o formato internacional (ex: +55...).</li>
+                    </ul>
+                  </div>
                   
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid md:grid-cols-2 gap-4 pt-2">
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Beneficiário (Banco)</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Beneficiário</label>
                         <input 
                           type="text" 
                           value={pixConfig.name}
                           onChange={(e) => setPixConfig({...pixConfig, name: e.target.value})}
-                          placeholder="Ex: Libris Store ou Seu Nome"
+                          placeholder="Ex: Libris Store"
                           maxLength={25}
                           className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                         />
-                         <p className="text-xs text-slate-500 mt-1">Este nome aparecerá para o cliente ao escanear o QR Code.</p>
+                         <p className="text-xs text-slate-500 mt-1">Nome que aparecerá no comprovante.</p>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Cidade</label>
@@ -267,7 +305,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                   <button 
                     onClick={handleSavePix}
-                    className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-indigo-700 transition-colors flex items-center gap-2 mt-2"
+                    className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 mt-4 w-full md:w-auto"
                   >
                     <Save size={18} />
                     Salvar Configurações

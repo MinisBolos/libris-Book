@@ -62,6 +62,9 @@ const generatePixPayload = (key: string, type: string, name: string, city: strin
         // Assumindo que o usuario digite com DDI
         cleanKey = `+${cleanKey}`;
     }
+  } else {
+    // Para EVP e EMAIL, removemos espaços internos que possam ter vindo de copy-paste
+    cleanKey = cleanKey.replace(/\s/g, '');
   }
   
   const cleanName = normalizeStr(name || 'Libris Store').substring(0, 25); // Max 25 chars
